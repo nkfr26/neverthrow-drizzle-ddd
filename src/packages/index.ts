@@ -11,4 +11,9 @@ updateUserName(
   findUserById,
   checkUserExists(findUserByName),
   updateUser,
-)("019658c7-f60a-72fd-a008-edd598ab8c68", "nokky2");
+)("019658c7-f60a-72fd-a008-edd598ab8c68", "nokky2").then((result) => {
+  result.match(
+    (value) => console.log(value),
+    (error) => console.log(error),
+  );
+});
