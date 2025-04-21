@@ -1,0 +1,226 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# バックエンドコーディングルール
+
+## 使用技術
+
+- NeverThrow
+- Drizzle
+
+## 実装パターン
+
+### ディレクトリ構成例
+
+```
+src
+├─ db
+│  ├─ index.ts
+│  └─ schema.ts
+└─ packages
+   ├─ index.ts
+   ├─ domain
+   │  ├─ branded.ts
+   │  ├─ errors.ts
+   │  └─ user
+   │     ├─ model
+   │     │  ├─ index.ts
+   │     │  ├─ user-id.ts
+   │     │  ├─ user-name.ts
+   │     │  └─ user.ts
+   │     └─ service
+   │        └─ check-user-exists.ts
+   ├─ infrastructure
+   │  ├─ error.ts
+   │  └─ user-repository.ts
+   └─ use-case
+      └─ user
+         ├─ error.ts
+         └─ update-user-name.ts
+```
+
+### Branded Types
+
+```typescript
+declare const __brand: unique symbol;
+
+export type Branded<Type, Constructor> = Type & {
+  readonly [__brand]: Constructor;
+};
+```
+
+### エラー
+
+```typescript
+export class ValidationError extends Error {
+  readonly type = "ValidationError";
+}
+```
+
+### 値オブジェクト
+
+- 不変である
+- 交換が可能である
+- 等価性によって比較される
+- 紐付くふるまいは型定義の下に置く
+
+```typescript
+import { type Result, err, ok } from "neverthrow";
+import type { Branded } from "../../branded";
+import { ValidationError } from "../../errors";
+
+export type UserName = Branded<string, "UserName">;
+
+export const UserName = (value: string): Result<UserName, ValidationError> => {
+  if (value.length < 3) {
+    return err(new ValidationError("ユーザー名は3文字以上です。"));
+  }
+  return ok(value as UserName);
+};
+```
+
+### エンティティ
+
+- オブジェクトの変更は「関数適用による状態遷移」として実装する
+- 同じ属性であっても区別される
+- 同一性をもつ
+- 紐付くふるまいは型定義の下に置く
+
+```typescript
+import { Result } from "neverthrow";
+import type { ValidationError } from "../../errors";
+import { UserId } from "./user-id";
+import { UserName } from "./user-name";
+
+export type User = Readonly<{
+  id: UserId;
+  name: UserName;
+}>;
+
+export const User = (
+  id: string,
+  name: string,
+): Result<User, ValidationError> => {
+  return Result.combine([UserId(id), UserName(name)]).map(([id, name]) => ({
+    id,
+    name,
+  }));
+};
+
+export const changeUserName = (user: User, name: UserName) => ({
+  ...user,
+  name,
+});
+```
+
+### リポジトリ
+
+- 永続化
+- 再構築
+- ただの関数
+
+```typescript
+import { eq } from "drizzle-orm";
+import { type Result, ResultAsync, ok } from "neverthrow";
+import { db } from "../../db";
+import { type UserDataModel, usersTable } from "../../db/schema";
+import type { ValidationError } from "../domain/errors";
+import { User, type UserName } from "../domain/user/model";
+import { DbClientError } from "./errors";
+
+const toModel = (from: UserDataModel): Result<User, ValidationError> => {
+  return User(from.userId, from.name);
+};
+
+export type FindUserByName = (
+  name: UserName,
+) => ResultAsync<User | undefined, DbClientError | ValidationError>;
+
+export const findUserByName: FindUserByName = (name: UserName) => {
+  return ResultAsync.fromPromise(
+    db.select().from(usersTable).where(eq(usersTable.name, name)),
+    () => new DbClientError(),
+  ).andThen((userDataModels) =>
+    userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
+  );
+};
+```
+
+### ドメインサービス
+
+- 値オブジェクトやエンティティに記述すると不自然なふるまいを定義する
+- インフラストラクチャが絡む場合はリポジトリを高階関数としてDIする
+
+```typescript
+import type { ResultAsync } from "neverthrow";
+import type { DbClientError } from "../../../infrastructure/errors";
+import type { FindUserByName } from "../../../infrastructure/user-repository";
+import type { ValidationError } from "../../errors";
+import type { User } from "../model";
+
+export type CheckUserExists = (
+  user: User,
+) => ResultAsync<boolean, DbClientError | ValidationError>;
+
+export const checkUserExists =
+  (findUserByName: FindUserByName): CheckUserExists =>
+  (user: User) => {
+    return findUserByName(user.name).map((duplicateUser) => {
+      return duplicateUser !== undefined;
+    });
+  };
+```
+
+### ユースケース
+
+- ドメインオブジェクトを組み合わせて実行する
+- リポジトリやドメインサービスを高階関数としてDIする
+
+```typescript
+import { err } from "neverthrow";
+import { UserId, UserName } from "../../domain/user/model";
+import { changeUserName } from "../../domain/user/model/user";
+import type { CheckUserExists } from "../../domain/user/service/check-user-exists";
+import type {
+  FindUserById,
+  UpdateUser,
+} from "../../infrastructure/user-repository";
+import { CanNotRegisterUserError, UserNotFoundError } from "./errors";
+
+export const updateUserName =
+  (
+    findUserById: FindUserById,
+    checkUserExists: CheckUserExists,
+    updateUser: UpdateUser,
+  ) =>
+  async (id: string, name: string) => {
+    // ユーザーIDのバリデーション
+    const userIdResult = UserId(id);
+    if (userIdResult.isErr()) return err(userIdResult.error);
+
+    // ユーザーの存在確認
+    const userResult = await findUserById(userIdResult.value);
+    if (userResult.isErr()) return err(userResult.error);
+    const user = userResult.value;
+    if (user === undefined)
+      return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
+
+    // ユーザー名のバリデーション
+    const userNameResult = UserName(name);
+    if (userNameResult.isErr()) return err(userNameResult.error);
+
+    // ユーザー名の変更
+    const updatedUser = changeUserName(user, userNameResult.value);
+
+    // ユーザー名の重複確認
+    const existsResult = await checkUserExists(updatedUser);
+    if (existsResult.isErr()) return err(existsResult.error);
+    if (existsResult.value)
+      return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
+
+    // ユーザー名の更新
+    return await updateUser(updatedUser);
+  };
+```

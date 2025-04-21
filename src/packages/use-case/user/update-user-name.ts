@@ -1,0 +1,44 @@
+import { err } from "neverthrow";
+import { UserId, UserName } from "../../domain/user/model";
+import { changeUserName } from "../../domain/user/model/user";
+import type { CheckUserExists } from "../../domain/user/service/check-user-exists";
+import type {
+  FindUserById,
+  UpdateUser,
+} from "../../infrastructure/user-repository";
+import { CanNotRegisterUserError, UserNotFoundError } from "./errors";
+
+export const updateUserName =
+  (
+    findUserById: FindUserById,
+    checkUserExists: CheckUserExists,
+    updateUser: UpdateUser,
+  ) =>
+  async (id: string, name: string) => {
+    // ユーザーIDのバリデーション
+    const userIdResult = UserId(id);
+    if (userIdResult.isErr()) return err(userIdResult.error);
+
+    // ユーザーの存在確認
+    const userResult = await findUserById(userIdResult.value);
+    if (userResult.isErr()) return err(userResult.error);
+    const user = userResult.value;
+    if (user === undefined)
+      return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
+
+    // ユーザー名のバリデーション
+    const userNameResult = UserName(name);
+    if (userNameResult.isErr()) return err(userNameResult.error);
+
+    // ユーザー名の変更
+    const updatedUser = changeUserName(user, userNameResult.value);
+
+    // ユーザー名の重複確認
+    const existsResult = await checkUserExists(updatedUser);
+    if (existsResult.isErr()) return err(existsResult.error);
+    if (existsResult.value)
+      return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
+
+    // ユーザー名の更新
+    return await updateUser(updatedUser);
+  };
