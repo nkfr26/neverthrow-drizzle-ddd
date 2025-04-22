@@ -17,25 +17,25 @@ export const updateUserName =
   async (id: string, name: string) => {
     // ユーザーIDのバリデーション
     const userIdResult = UserId(id);
-    if (userIdResult.isErr()) return err(userIdResult.error);
+    if (userIdResult.isErr()) return userIdResult;
 
     // ユーザーの存在確認
     const userResult = await findUserById(userIdResult.value);
-    if (userResult.isErr()) return err(userResult.error);
+    if (userResult.isErr()) return userResult;
     const user = userResult.value;
     if (user === undefined)
       return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
 
     // ユーザー名のバリデーション
     const userNameResult = UserName(name);
-    if (userNameResult.isErr()) return err(userNameResult.error);
+    if (userNameResult.isErr()) return userNameResult;
 
     // ユーザー名の変更
     const updatedUser = changeUserName(user, userNameResult.value);
 
     // ユーザー名の重複確認
     const existsResult = await checkUserExists(updatedUser);
-    if (existsResult.isErr()) return err(existsResult.error);
+    if (existsResult.isErr()) return existsResult;
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 

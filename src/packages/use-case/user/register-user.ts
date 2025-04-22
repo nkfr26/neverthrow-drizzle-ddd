@@ -9,15 +9,15 @@ export const registerUser =
   (checkUserExists: CheckUserExists, insertUser: InsertUser) =>
   async (name: string) => {
     // ユーザーの生成
-    const user = User(uuidv7(), name);
-    if (user.isErr()) return err(user.error);
+    const userResult = User(uuidv7(), name);
+    if (userResult.isErr()) return userResult;
 
     // ユーザー名の重複確認
-    const existsResult = await checkUserExists(user.value);
-    if (existsResult.isErr()) return err(existsResult.error);
+    const existsResult = await checkUserExists(userResult.value);
+    if (existsResult.isErr()) return existsResult;
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 
     // ユーザーの作成
-    return await insertUser(user.value);
+    return await insertUser(userResult.value);
   };
