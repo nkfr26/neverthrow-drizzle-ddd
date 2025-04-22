@@ -33,11 +33,12 @@ src
    │     └─ service
    │        └─ check-user-exists.ts
    ├─ infrastructure
-   │  ├─ error.ts
+   │  ├─ errors.ts
    │  └─ user-repository.ts
    └─ use-case
       └─ user
-         ├─ error.ts
+         ├─ errors.ts
+         ├─ register-user.ts
          └─ update-user-name.ts
 ```
 
@@ -123,22 +124,17 @@ export const changeUserName = (user: User, name: UserName) => ({
 
 ```typescript
 import { eq } from "drizzle-orm";
-import { type Result, ResultAsync, ok } from "neverthrow";
+import { ResultAsync, ok } from "neverthrow";
 import { db } from "../../db";
 import { type UserDataModel, usersTable } from "../../db/schema";
-import type { ValidationError } from "../domain/errors";
 import { User, type UserName } from "../domain/user/model";
 import { DbClientError } from "./errors";
 
-const toModel = (from: UserDataModel): Result<User, ValidationError> => {
+const toModel = (from: UserDataModel) => {
   return User(from.userId, from.name);
 };
 
-export type FindUserByName = (
-  name: UserName,
-) => ResultAsync<User | undefined, DbClientError | ValidationError>;
-
-export const findUserByName: FindUserByName = (name: UserName) => {
+export const findUserByName = (name: UserName) => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.name, name)),
     () => new DbClientError(),
@@ -146,6 +142,7 @@ export const findUserByName: FindUserByName = (name: UserName) => {
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );
 };
+export type FindUserByName = typeof findUserByName;
 ```
 
 ### ドメインサービス
@@ -154,29 +151,48 @@ export const findUserByName: FindUserByName = (name: UserName) => {
 - インフラストラクチャが絡む場合はリポジトリを高階関数としてDIする
 
 ```typescript
-import type { ResultAsync } from "neverthrow";
-import type { DbClientError } from "../../../infrastructure/errors";
 import type { FindUserByName } from "../../../infrastructure/user-repository";
-import type { ValidationError } from "../../errors";
 import type { User } from "../model";
 
-export type CheckUserExists = (
-  user: User,
-) => ResultAsync<boolean, DbClientError | ValidationError>;
-
 export const checkUserExists =
-  (findUserByName: FindUserByName): CheckUserExists =>
-  (user: User) => {
-    return findUserByName(user.name).map((duplicateUser) => {
-      return duplicateUser !== undefined;
-    });
+  (findUserByName: FindUserByName) => (user: User) => {
+    return findUserByName(user.name).map(
+      (duplicateUser) => duplicateUser !== undefined,
+    );
   };
+export type CheckUserExists = ReturnType<typeof checkUserExists>;
 ```
 
 ### ユースケース
 
 - ドメインオブジェクトを組み合わせて実行する
-- リポジトリやドメインサービスを高階関数としてDIする
+- リポジトリや部分適用されたドメインサービスを高階関数として使用する順番にDIする
+
+```typescript
+import { err } from "neverthrow";
+import { v7 as uuidv7 } from "uuid";
+import { User } from "../../domain/user/model/user";
+import type { CheckUserExists } from "../../domain/user/service/check-user-exists";
+import type { InsertUser } from "../../infrastructure/user-repository";
+import { CanNotRegisterUserError } from "./errors";
+
+export const registerUser =
+  (checkUserExists: CheckUserExists, insertUser: InsertUser) =>
+  async (name: string) => {
+    // ユーザーの生成
+    const user = User(uuidv7(), name);
+    if (user.isErr()) return err(user.error);
+
+    // ユーザー名の重複確認
+    const existsResult = await checkUserExists(user.value);
+    if (existsResult.isErr()) return err(existsResult.error);
+    if (existsResult.value)
+      return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
+
+    // ユーザーの作成
+    return await insertUser(user.value);
+  };
+```
 
 ```typescript
 import { err } from "neverthrow";
@@ -223,4 +239,28 @@ export const updateUserName =
     // ユーザー名の更新
     return await updateUser(updatedUser);
   };
+```
+
+### プレゼンテーション
+
+```typescript
+import { checkUserExists } from "./domain/user/service/check-user-exists";
+import {
+  findUserById,
+  findUserByName,
+  updateUser,
+} from "./infrastructure/user-repository";
+import { updateUserName } from "./use-case/user/update-user-name";
+
+// registerUser(checkUserExists(findUserByName), insertUser)("hoge");
+updateUserName(
+  findUserById,
+  checkUserExists(findUserByName),
+  updateUser,
+)("01965e16-5c1e-739b-9c72-3aafe9d05ba4", "fuga").then((result) => {
+  result.match(
+    (value) => console.log(value),
+    (error) => console.error(error),
+  );
+});
 ```

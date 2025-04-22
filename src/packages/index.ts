@@ -6,14 +6,14 @@ import {
 } from "./infrastructure/user-repository";
 import { updateUserName } from "./use-case/user/update-user-name";
 
-// registerUser(checkUserExists(findUserByName), insertUser)("nokky");
+// registerUser(checkUserExists(findUserByName), insertUser)("hoge");
 updateUserName(
   findUserById,
   checkUserExists(findUserByName),
   updateUser,
-)("019658c7-f60a-72fd-a008-edd598ab8c68", "nokky2").then((result) => {
+)("01965e16-5c1e-739b-9c72-3aafe9d05ba4", "fuga").then((result) => {
   result.match(
     (value) => console.log(value),
-    (error) => console.log(error),
+    (error) => console.error(error),
   );
 });
