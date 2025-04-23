@@ -3,16 +3,16 @@ import { UserId, UserName } from "../../domain/user/model";
 import { changeUserName } from "../../domain/user/model/user";
 import type { CheckUserExists } from "../../domain/user/service/check-user-exists";
 import type {
-  FindUserById,
-  UpdateUser,
-} from "../../infrastructure/user-repository";
+  SelectUserByIdQuery,
+  UpdateUserCommand,
+} from "../../infrastructure/user";
 import { CanNotRegisterUserError, UserNotFoundError } from "./errors";
 
 export const updateUserName =
   (
-    findUserById: FindUserById,
+    selectUserByIdQuery: SelectUserByIdQuery,
     checkUserExists: CheckUserExists,
-    updateUser: UpdateUser,
+    updateUserCommand: UpdateUserCommand,
   ) =>
   async (id: string, name: string) => {
     // ユーザーIDのバリデーション
@@ -20,7 +20,7 @@ export const updateUserName =
     if (userIdResult.isErr()) return userIdResult;
 
     // ユーザーの存在確認
-    const userResult = await findUserById(userIdResult.value);
+    const userResult = await selectUserByIdQuery(userIdResult.value);
     if (userResult.isErr()) return userResult;
     const user = userResult.value;
     if (user === undefined)
@@ -40,5 +40,5 @@ export const updateUserName =
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 
     // ユーザー名の更新
-    return await updateUser(updatedUser);
+    return await updateUserCommand(updatedUser);
   };

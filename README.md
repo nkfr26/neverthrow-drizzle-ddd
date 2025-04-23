@@ -2,5 +2,5 @@
 
 ```
 npm install
-npx ts-node .\src\packages\index.ts
+npx tsnd .\src\index.ts
 ```

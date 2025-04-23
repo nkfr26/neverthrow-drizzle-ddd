@@ -3,7 +3,7 @@
     "@biomejs/biome": "1.9.4",
     "@types/node": "^22.14.1",
     "drizzle-kit": "^0.31.0",
-    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
   },
   "dependencies": {
