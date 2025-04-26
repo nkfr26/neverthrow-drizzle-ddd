@@ -7,40 +7,44 @@ import {
 import { getAllUsers } from "./packages/use-case/user/get-all-users";
 import { registerUser } from "./packages/use-case/user/register-user";
 
-registerUser(
-  checkUserExists(selectUserByNameQuery),
-  insertUserCommand,
-)("hoge").then((result) => {
-  result.match(
-    (value) => console.log(value),
-    (error) => console.error(error),
-  );
-});
+const main = async () => {
+  await registerUser(
+    checkUserExists(selectUserByNameQuery),
+    insertUserCommand,
+  )("hoge").then((result) => {
+    result.match(
+      (value) => console.log(value),
+      (error) => console.error(error),
+    );
+  });
 
-getAllUsers(selectAllUsersQuery)().then((result) => {
-  result.match(
-    (value) => console.log(value),
-    (error) => console.error(error),
-  );
-});
+  await getAllUsers(selectAllUsersQuery)().then((result) => {
+    result.match(
+      (value) => console.log(value),
+      (error) => console.error(error),
+    );
+  });
 
-// updateUserName(
-//   selectUserByIdQuery,
-//   checkUserExists(selectUserByNameQuery),
-//   updateUserCommand,
-// )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga").then((result) => {
-//   result.match(
-//     (value) => console.log(value),
-//     (error) => console.error(error),
-//   );
-// });
+  // updateUserName(
+  //   selectUserByIdQuery,
+  //   checkUserExists(selectUserByNameQuery),
+  //   updateUserCommand,
+  // )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga").then((result) => {
+  //   result.match(
+  //     (value) => console.log(value),
+  //     (error) => console.error(error),
+  //   );
+  // });
 
-// deleteUser(
-//   selectUserByIdQuery,
-//   deleteUserCommand,
-// )("01966230-8abb-71ca-80f2-0f127a1c4cf0").then((result) => {
-//   result.match(
-//     (value) => console.log(value),
-//     (error) => console.error(error),
-//   );
-// });
+  // deleteUser(
+  //   selectUserByIdQuery,
+  //   deleteUserCommand,
+  // )("01966230-8abb-71ca-80f2-0f127a1c4cf0").then((result) => {
+  //   result.match(
+  //     (value) => console.log(value),
+  //     (error) => console.error(error),
+  //   );
+  // });
+};
+
+main();

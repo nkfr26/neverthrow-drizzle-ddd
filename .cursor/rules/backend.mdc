@@ -15,7 +15,7 @@ alwaysApply: true
 ### ディレクトリ構成例
 
 - フレームワークに依存しない
-- `packages` 内の `index.ts` はディレクトリ内の関数をまとめて `export` し直す。
+- `packages` 内の `index.ts` はディレクトリ内の関数をまとめて `export` し直す
 
 ```
 src
@@ -48,6 +48,12 @@ src
          ├─ errors.ts
          ├─ register-user.ts
          └─ update-user-name.ts
+```
+
+```typescript
+export * from "./user";
+export * from "./user-id";
+export * from "./user-name";
 ```
 
 ### Branded Types
