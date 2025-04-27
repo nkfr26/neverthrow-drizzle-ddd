@@ -12,7 +12,7 @@ const toModel = (from: UserDataModel) => {
 export const selectUserByIdQuery = (id: UserId) => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.userId, id)),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) =>
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );
@@ -22,7 +22,7 @@ export type SelectUserByIdQuery = typeof selectUserByIdQuery;
 export const selectAllUsersQuery = () => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) => Result.combine(userDataModels.map(toModel)));
 };
 export type SelectAllUsersQuery = typeof selectAllUsersQuery;
@@ -30,7 +30,7 @@ export type SelectAllUsersQuery = typeof selectAllUsersQuery;
 export const selectUserByNameQuery = (name: UserName) => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.name, name)),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) =>
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );

@@ -10,11 +10,11 @@ export const registerUser =
   async (name: string) => {
     // ユーザーの生成
     const userResult = User(uuidv7(), name);
-    if (userResult.isErr()) return userResult;
+    if (userResult.isErr()) return err(userResult.error);
 
-    // ユーザー名の重複確認
+    // ユーザーの重複確認
     const existsResult = await checkUserExists(userResult.value);
-    if (existsResult.isErr()) return existsResult;
+    if (existsResult.isErr()) return err(existsResult.error);
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 

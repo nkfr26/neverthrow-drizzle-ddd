@@ -7,7 +7,7 @@ import { DbClientError } from "../errors";
 export const insertUserCommand = (user: User) => {
   return ResultAsync.fromPromise(
     db.insert(usersTable).values({ userId: user.id, name: user.name }),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   );
 };
 export type InsertUserCommand = typeof insertUserCommand;

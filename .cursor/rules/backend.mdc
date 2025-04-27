@@ -7,6 +7,7 @@ alwaysApply: true
 
 ## 使用技術
 
+- TypeScript
 - NeverThrow
 - Drizzle
 
@@ -45,7 +46,9 @@ src
    │     └─ update-user-command.ts
    └─ use-case
       └─ user
+         ├─ delete-user.ts
          ├─ errors.ts
+         ├─ get-all-users.ts
          ├─ register-user.ts
          └─ update-user-name.ts
 ```
@@ -138,6 +141,26 @@ export const changeUserName = (user: User, name: UserName) => ({
 
 ```typescript
 import { eq } from "drizzle-orm";
+import { ResultAsync } from "neverthrow";
+import { db } from "../../../db";
+import { usersTable } from "../../../db/schema";
+import type { User } from "../../domain/user/model";
+import { DbClientError } from "../errors";
+
+export const updateUserCommand = (user: User) => {
+  return ResultAsync.fromPromise(
+    db
+      .update(usersTable)
+      .set({ name: user.name })
+      .where(eq(usersTable.userId, user.id)),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
+  );
+};
+export type UpdateUserCommand = typeof updateUserCommand;
+```
+
+```typescript
+import { eq } from "drizzle-orm";
 import { Result, ResultAsync, ok } from "neverthrow";
 import { db } from "../../../db";
 import { type UserDataModel, usersTable } from "../../../db/schema";
@@ -151,7 +174,7 @@ const toModel = (from: UserDataModel) => {
 export const selectUserByIdQuery = (id: UserId) => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.userId, id)),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) =>
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );
@@ -161,7 +184,7 @@ export type SelectUserByIdQuery = typeof selectUserByIdQuery;
 export const selectAllUsersQuery = () => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) => Result.combine(userDataModels.map(toModel)));
 };
 export type SelectAllUsersQuery = typeof selectAllUsersQuery;
@@ -169,7 +192,7 @@ export type SelectAllUsersQuery = typeof selectAllUsersQuery;
 export const selectUserByNameQuery = (name: UserName) => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.name, name)),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) =>
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );
@@ -213,11 +236,11 @@ export const registerUser =
   async (name: string) => {
     // ユーザーの生成
     const userResult = User(uuidv7(), name);
-    if (userResult.isErr()) return userResult;
+    if (userResult.isErr()) return err(userResult.error);
 
-    // ユーザー名の重複確認
+    // ユーザーの重複確認
     const existsResult = await checkUserExists(userResult.value);
-    if (existsResult.isErr()) return existsResult;
+    if (existsResult.isErr()) return err(existsResult.error);
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 
@@ -246,25 +269,25 @@ export const updateUserName =
   async (id: string, name: string) => {
     // ユーザーIDのバリデーション
     const userIdResult = UserId(id);
-    if (userIdResult.isErr()) return userIdResult;
+    if (userIdResult.isErr()) return err(userIdResult.error);
 
     // ユーザーの存在確認
     const userResult = await selectUserByIdQuery(userIdResult.value);
-    if (userResult.isErr()) return userResult;
+    if (userResult.isErr()) return err(userResult.error);
     const user = userResult.value;
     if (user === undefined)
       return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
 
     // ユーザー名のバリデーション
     const userNameResult = UserName(name);
-    if (userNameResult.isErr()) return userNameResult;
+    if (userNameResult.isErr()) return err(userNameResult.error);
 
     // ユーザー名の変更
     const updatedUser = changeUserName(user, userNameResult.value);
 
-    // ユーザー名の重複確認
+    // ユーザーの重複確認
     const existsResult = await checkUserExists(updatedUser);
-    if (existsResult.isErr()) return existsResult;
+    if (existsResult.isErr()) return err(existsResult.error);
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 
@@ -279,38 +302,51 @@ export const updateUserName =
 import { checkUserExists } from "./packages/domain/user/service/check-user-exists";
 import {
   insertUserCommand,
+  selectAllUsersQuery,
   selectUserByNameQuery,
 } from "./packages/infrastructure/user";
+import { getAllUsers } from "./packages/use-case/user/get-all-users";
 import { registerUser } from "./packages/use-case/user/register-user";
 
-registerUser(
-  checkUserExists(selectUserByNameQuery),
-  insertUserCommand,
-)("hoge").then((result) => {
-  result.match(
-    (value) => console.log(value),
-    (error) => console.error(error),
-  );
-});
-```
+const main = async () => {
+  await registerUser(
+    checkUserExists(selectUserByNameQuery),
+    insertUserCommand,
+  )("hoge").then((result) => {
+    result.match(
+      (value) => console.log(value),
+      (error) => console.error(error),
+    );
+  });
 
-```typescript
-import { checkUserExists } from "./packages/domain/user/service/check-user-exists";
-import {
-  selectUserByIdQuery,
-  selectUserByNameQuery,
-  updateUserCommand,
-} from "./packages/infrastructure/user";
-import { updateUserName } from "./packages/use-case/user/update-user-name";
+  await getAllUsers(selectAllUsersQuery)().then((result) => {
+    result.match(
+      (value) => console.log(value),
+      (error) => console.error(error),
+    );
+  });
 
-updateUserName(
-  selectUserByIdQuery,
-  checkUserExists(selectUserByNameQuery),
-  updateUserCommand,
-)("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga").then((result) => {
-  result.match(
-    (value) => console.log(value),
-    (error) => console.error(error),
-  );
-});
+  // await updateUserName(
+  //   selectUserByIdQuery,
+  //   checkUserExists(selectUserByNameQuery),
+  //   updateUserCommand,
+  // )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga").then((result) => {
+  //   result.match(
+  //     (value) => console.log(value),
+  //     (error) => console.error(error),
+  //   );
+  // });
+
+  // await deleteUser(
+  //   selectUserByIdQuery,
+  //   deleteUserCommand,
+  // )("01966230-8abb-71ca-80f2-0f127a1c4cf0").then((result) => {
+  //   result.match(
+  //     (value) => console.log(value),
+  //     (error) => console.error(error),
+  //   );
+  // });
+};
+
+main();
 ```

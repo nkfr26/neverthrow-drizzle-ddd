@@ -14,11 +14,11 @@ export const deleteUser =
   async (id: string) => {
     // ユーザーIDのバリデーション
     const userIdResult = UserId(id);
-    if (userIdResult.isErr()) return userIdResult;
+    if (userIdResult.isErr()) return err(userIdResult.error);
 
     // ユーザーの存在確認
     const userResult = await selectUserByIdQuery(userIdResult.value);
-    if (userResult.isErr()) return userResult;
+    if (userResult.isErr()) return err(userResult.error);
     const user = userResult.value;
     if (user === undefined)
       return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));

@@ -8,7 +8,7 @@ import { DbClientError } from "../errors";
 export const deleteUserCommand = (user: User) => {
   return ResultAsync.fromPromise(
     db.delete(usersTable).where(eq(usersTable.userId, user.id)),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   );
 };
 export type DeleteUserCommand = typeof deleteUserCommand;

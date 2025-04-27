@@ -25,7 +25,7 @@ const main = async () => {
     );
   });
 
-  // updateUserName(
+  // await updateUserName(
   //   selectUserByIdQuery,
   //   checkUserExists(selectUserByNameQuery),
   //   updateUserCommand,
@@ -36,7 +36,7 @@ const main = async () => {
   //   );
   // });
 
-  // deleteUser(
+  // await deleteUser(
   //   selectUserByIdQuery,
   //   deleteUserCommand,
   // )("01966230-8abb-71ca-80f2-0f127a1c4cf0").then((result) => {

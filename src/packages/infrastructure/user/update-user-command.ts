@@ -11,7 +11,7 @@ export const updateUserCommand = (user: User) => {
       .update(usersTable)
       .set({ name: user.name })
       .where(eq(usersTable.userId, user.id)),
-    () => new DbClientError(),
+    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   );
 };
 export type UpdateUserCommand = typeof updateUserCommand;
