@@ -10,7 +10,7 @@ import {
 import { deleteUser } from "./packages/use-case/user/delete-user";
 import { getAllUsers } from "./packages/use-case/user/get-all-users";
 import { registerUser } from "./packages/use-case/user/register-user";
-import { updateUserName } from "./packages/use-case/user/update-user-name";
+import { updateUser } from "./packages/use-case/user/update-user";
 
 const main = async () => {
   await registerUser(
@@ -30,7 +30,7 @@ const main = async () => {
     );
   });
 
-  await updateUserName(
+  await updateUser(
     selectUserByIdQuery,
     userExists(selectUserByNameQuery),
     updateUserCommand,

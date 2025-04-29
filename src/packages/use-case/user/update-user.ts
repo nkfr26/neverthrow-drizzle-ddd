@@ -8,7 +8,7 @@ import type {
 } from "../../infrastructure/user";
 import { CanNotRegisterUserError, UserNotFoundError } from "./errors";
 
-export const updateUserName =
+export const updateUser =
   (
     selectUserByIdQuery: SelectUserByIdQuery,
     userExists: UserExists,
@@ -39,6 +39,6 @@ export const updateUserName =
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 
-    // ユーザー名の更新
+    // ユーザーの更新
     return await updateUserCommand(updatedUser);
   };

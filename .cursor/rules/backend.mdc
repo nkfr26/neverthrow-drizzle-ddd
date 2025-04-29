@@ -49,7 +49,7 @@ src
          ├─ errors.ts
          ├─ get-all-users.ts
          ├─ register-user.ts
-         └─ update-user-name.ts
+         └─ update-user.ts
 ```
 
 ```typescript
@@ -259,7 +259,7 @@ import type {
 } from "../../infrastructure/user";
 import { CanNotRegisterUserError, UserNotFoundError } from "./errors";
 
-export const updateUserName =
+export const updateUser =
   (
     selectUserByIdQuery: SelectUserByIdQuery,
     userExists: UserExists,
@@ -290,7 +290,7 @@ export const updateUserName =
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
 
-    // ユーザー名の更新
+    // ユーザーの更新
     return await updateUserCommand(updatedUser);
   };
 ```
@@ -310,7 +310,7 @@ import {
 import { deleteUser } from "./packages/use-case/user/delete-user";
 import { getAllUsers } from "./packages/use-case/user/get-all-users";
 import { registerUser } from "./packages/use-case/user/register-user";
-import { updateUserName } from "./packages/use-case/user/update-user-name";
+import { updateUser } from "./packages/use-case/user/update-user";
 
 const main = async () => {
   await registerUser(
@@ -330,7 +330,7 @@ const main = async () => {
     );
   });
 
-  await updateUserName(
+  await updateUser(
     selectUserByIdQuery,
     userExists(selectUserByNameQuery),
     updateUserCommand,
