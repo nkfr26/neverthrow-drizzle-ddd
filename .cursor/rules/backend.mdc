@@ -203,7 +203,7 @@ export type SelectUserByNameQuery = typeof selectUserByNameQuery;
 ### ドメインサービス
 
 - 値オブジェクトやエンティティに記述すると不自然なふるまいを定義する
-- インフラストラクチャが絡む場合はリポジトリを高階関数としてDIする
+- インフラストラクチャが絡む場合はコマンド・クエリを高階関数としてDIする
 
 ```typescript
 import type { SelectUserByNameQuery } from "../../../infrastructure/user";
@@ -221,7 +221,7 @@ export type UserExists = ReturnType<typeof userExists>;
 ### ユースケース
 
 - ドメインオブジェクトを組み合わせて実行する
-- リポジトリや部分適用されたドメインサービスを高階関数として使用する順番にDIする
+- コマンド・クエリや部分適用されたドメインサービスを高階関数として使用する順番にDIする
 
 ```typescript
 import { err } from "neverthrow";
