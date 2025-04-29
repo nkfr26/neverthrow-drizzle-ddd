@@ -1,10 +1,10 @@
 import type { SelectUserByNameQuery } from "../../../infrastructure/user";
 import type { User } from "../model";
 
-export const checkUserExists =
+export const userExists =
   (selectUserByNameQuery: SelectUserByNameQuery) => (user: User) => {
     return selectUserByNameQuery(user.name).map(
       (duplicateUser) => duplicateUser !== undefined,
     );
   };
-export type CheckUserExists = ReturnType<typeof checkUserExists>;
+export type UserExists = ReturnType<typeof userExists>;

@@ -1,4 +1,4 @@
-import { checkUserExists } from "./packages/domain/user/service/check-user-exists";
+import { userExists } from "./packages/domain/user/service/user-exists";
 import {
   insertUserCommand,
   selectAllUsersQuery,
@@ -9,7 +9,7 @@ import { registerUser } from "./packages/use-case/user/register-user";
 
 const main = async () => {
   await registerUser(
-    checkUserExists(selectUserByNameQuery),
+    userExists(selectUserByNameQuery),
     insertUserCommand,
   )("hoge").then((result) => {
     result.match(
@@ -27,7 +27,7 @@ const main = async () => {
 
   // await updateUserName(
   //   selectUserByIdQuery,
-  //   checkUserExists(selectUserByNameQuery),
+  //   userExists(selectUserByNameQuery),
   //   updateUserCommand,
   // )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga").then((result) => {
   //   result.match(

@@ -1,7 +1,7 @@
 import { err } from "neverthrow";
 import { UserId, UserName } from "../../domain/user/model";
 import { changeUserName } from "../../domain/user/model/user";
-import type { CheckUserExists } from "../../domain/user/service/check-user-exists";
+import type { UserExists } from "../../domain/user/service/user-exists";
 import type {
   SelectUserByIdQuery,
   UpdateUserCommand,
@@ -11,7 +11,7 @@ import { CanNotRegisterUserError, UserNotFoundError } from "./errors";
 export const updateUserName =
   (
     selectUserByIdQuery: SelectUserByIdQuery,
-    checkUserExists: CheckUserExists,
+    userExists: UserExists,
     updateUserCommand: UpdateUserCommand,
   ) =>
   async (id: string, name: string) => {
@@ -34,7 +34,7 @@ export const updateUserName =
     const updatedUser = changeUserName(user, userNameResult.value);
 
     // ユーザーの重複確認
-    const existsResult = await checkUserExists(updatedUser);
+    const existsResult = await userExists(updatedUser);
     if (existsResult.isErr()) return err(existsResult.error);
     if (existsResult.value)
       return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
