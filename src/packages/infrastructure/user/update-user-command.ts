@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { ResultAsync } from "neverthrow";
-import { db } from "../../../db";
+import type { DrizzleClient } from "../../../db";
 import { usersTable } from "../../../db/schema";
 import type { User } from "../../domain/user/model";
 import { DbClientError } from "../errors";
 
-export const updateUserCommand = (user: User) => {
+export const updateUserCommand = (db: DrizzleClient) => (user: User) => {
   return ResultAsync.fromPromise(
     db
       .update(usersTable)
@@ -14,4 +14,4 @@ export const updateUserCommand = (user: User) => {
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   );
 };
-export type UpdateUserCommand = typeof updateUserCommand;
+export type UpdateUserCommand = ReturnType<typeof updateUserCommand>;

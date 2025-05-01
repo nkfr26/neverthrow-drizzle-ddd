@@ -7,6 +7,7 @@ alwaysApply: true
 
 ## 使用技術
 
+- TypeScript
 - NeverThrow
 - Drizzle
 
@@ -136,17 +137,17 @@ export const changeUserName = (user: User, name: UserName) => ({
 
 - 永続化
 - 再構築
-- ただの関数
+- 役割ごとに単独の関数として実装
 
 ```typescript
 import { eq } from "drizzle-orm";
 import { ResultAsync } from "neverthrow";
-import { db } from "../../../db";
+import type { DrizzleClient } from "../../../db";
 import { usersTable } from "../../../db/schema";
 import type { User } from "../../domain/user/model";
 import { DbClientError } from "../errors";
 
-export const updateUserCommand = (user: User) => {
+export const updateUserCommand = (db: DrizzleClient) => (user: User) => {
   return ResultAsync.fromPromise(
     db
       .update(usersTable)
@@ -155,13 +156,13 @@ export const updateUserCommand = (user: User) => {
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   );
 };
-export type UpdateUserCommand = typeof updateUserCommand;
+export type UpdateUserCommand = ReturnType<typeof updateUserCommand>;
 ```
 
 ```typescript
 import { eq } from "drizzle-orm";
 import { Result, ResultAsync, ok } from "neverthrow";
-import { db } from "../../../db";
+import type { DrizzleClient } from "../../../db";
 import { type UserDataModel, usersTable } from "../../../db/schema";
 import { User, type UserId, type UserName } from "../../domain/user/model";
 import { DbClientError } from "../errors";
@@ -170,7 +171,7 @@ const toModel = (from: UserDataModel) => {
   return User(from.userId, from.name);
 };
 
-export const selectUserByIdQuery = (id: UserId) => {
+export const selectUserByIdQuery = (db: DrizzleClient) => (id: UserId) => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.userId, id)),
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
@@ -178,17 +179,17 @@ export const selectUserByIdQuery = (id: UserId) => {
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );
 };
-export type SelectUserByIdQuery = typeof selectUserByIdQuery;
+export type SelectUserByIdQuery = ReturnType<typeof selectUserByIdQuery>;
 
-export const selectAllUsersQuery = () => {
+export const selectAllUsersQuery = (db: DrizzleClient) => () => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable),
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) => Result.combine(userDataModels.map(toModel)));
 };
-export type SelectAllUsersQuery = typeof selectAllUsersQuery;
+export type SelectAllUsersQuery = ReturnType<typeof selectAllUsersQuery>;
 
-export const selectUserByNameQuery = (name: UserName) => {
+export const selectUserByNameQuery = (db: DrizzleClient) => (name: UserName) => {
   return ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.name, name)),
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
@@ -196,7 +197,7 @@ export const selectUserByNameQuery = (name: UserName) => {
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );
 };
-export type SelectUserByNameQuery = typeof selectUserByNameQuery;
+export type SelectUserByNameQuery = ReturnType<typeof selectUserByNameQuery>;
 ```
 
 ### ドメインサービス
@@ -298,6 +299,7 @@ export const updateUser =
 ### 使用例
 
 ```typescript
+import { db } from "./db";
 import { userExists } from "./packages/domain/user/service/user-exists";
 import {
   deleteUserCommand,
@@ -313,43 +315,67 @@ import { registerUser } from "./packages/use-case/user/register-user";
 import { updateUser } from "./packages/use-case/user/update-user";
 
 const main = async () => {
-  await registerUser(
-    userExists(selectUserByNameQuery),
-    insertUserCommand,
-  )("hoge").then((result) => {
+  await getAllUsers(selectAllUsersQuery(db))().then((result) => {
     result.match(
       (value) => console.log(value),
       (error) => console.error(error),
     );
   });
 
-  await getAllUsers(selectAllUsersQuery)().then((result) => {
-    result.match(
-      (value) => console.log(value),
-      (error) => console.error(error),
-    );
-  });
+  try {
+    await db.transaction(async (tx) => {
+      const result = await registerUser(
+        userExists(selectUserByNameQuery(tx)),
+        insertUserCommand(tx),
+      )("hoge");
 
-  await updateUser(
-    selectUserByIdQuery,
-    userExists(selectUserByNameQuery),
-    updateUserCommand,
-  )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga").then((result) => {
-    result.match(
-      (value) => console.log(value),
-      (error) => console.error(error),
-    );
-  });
+      result.match(
+        (value) => console.log(value),
+        (error) => {
+          throw error;
+        },
+      );
+    });
+  } catch (error) {
+    console.error(error);
+  }
 
-  await deleteUser(
-    selectUserByIdQuery,
-    deleteUserCommand,
-  )("01966230-8abb-71ca-80f2-0f127a1c4cf0").then((result) => {
-    result.match(
-      (value) => console.log(value),
-      (error) => console.error(error),
-    );
-  });
+  try {
+    await db.transaction(async (tx) => {
+      const result = await updateUser(
+        selectUserByIdQuery(tx),
+        userExists(selectUserByNameQuery(tx)),
+        updateUserCommand(tx),
+      )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga");
+
+      result.match(
+        (value) => console.log(value),
+        (error) => {
+          throw error;
+        },
+      );
+    });
+  } catch (error) {
+    console.error(error);
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const result = await deleteUser(
+        selectUserByIdQuery(tx),
+        deleteUserCommand(tx),
+      )("01966230-8abb-71ca-80f2-0f127a1c4cf0");
+
+      result.match(
+        (value) => console.log(value),
+        (error) => {
+          throw error;
+        },
+      );
+    });
+  } catch (error) {
+    console.error(error);
+  }
 };
 
 main();

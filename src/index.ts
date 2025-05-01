@@ -1,3 +1,4 @@
+import { db } from "./db";
 import { userExists } from "./packages/domain/user/service/user-exists";
 import {
   deleteUserCommand,
@@ -13,43 +14,67 @@ import { registerUser } from "./packages/use-case/user/register-user";
 import { updateUser } from "./packages/use-case/user/update-user";
 
 const main = async () => {
-  await registerUser(
-    userExists(selectUserByNameQuery),
-    insertUserCommand,
-  )("hoge").then((result) => {
+  await getAllUsers(selectAllUsersQuery(db))().then((result) => {
     result.match(
       (value) => console.log(value),
       (error) => console.error(error),
     );
   });
 
-  await getAllUsers(selectAllUsersQuery)().then((result) => {
-    result.match(
-      (value) => console.log(value),
-      (error) => console.error(error),
-    );
-  });
+  try {
+    await db.transaction(async (tx) => {
+      const result = await registerUser(
+        userExists(selectUserByNameQuery(tx)),
+        insertUserCommand(tx),
+      )("hoge");
 
-  await updateUser(
-    selectUserByIdQuery,
-    userExists(selectUserByNameQuery),
-    updateUserCommand,
-  )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga").then((result) => {
-    result.match(
-      (value) => console.log(value),
-      (error) => console.error(error),
-    );
-  });
+      result.match(
+        (value) => console.log(value),
+        (error) => {
+          throw error;
+        },
+      );
+    });
+  } catch (error) {
+    console.error(error);
+  }
 
-  await deleteUser(
-    selectUserByIdQuery,
-    deleteUserCommand,
-  )("01966230-8abb-71ca-80f2-0f127a1c4cf0").then((result) => {
-    result.match(
-      (value) => console.log(value),
-      (error) => console.error(error),
-    );
-  });
+  try {
+    await db.transaction(async (tx) => {
+      const result = await updateUser(
+        selectUserByIdQuery(tx),
+        userExists(selectUserByNameQuery(tx)),
+        updateUserCommand(tx),
+      )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga");
+
+      result.match(
+        (value) => console.log(value),
+        (error) => {
+          throw error;
+        },
+      );
+    });
+  } catch (error) {
+    console.error(error);
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const result = await deleteUser(
+        selectUserByIdQuery(tx),
+        deleteUserCommand(tx),
+      )("01966230-8abb-71ca-80f2-0f127a1c4cf0");
+
+      result.match(
+        (value) => console.log(value),
+        (error) => {
+          throw error;
+        },
+      );
+    });
+  } catch (error) {
+    console.error(error);
+  }
 };
 
 main();
