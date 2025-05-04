@@ -1,4 +1,4 @@
-import { err } from "neverthrow";
+import { err, safeTry } from "neverthrow";
 import { UserId, UserName } from "../../domain/user/model";
 import { changeUserName } from "../../domain/user/model/user";
 import type { UserExists } from "../../domain/user/service/user-exists";
@@ -14,31 +14,29 @@ export const updateUser =
     userExists: UserExists,
     updateUserCommand: UpdateUserCommand,
   ) =>
-  async (id: string, name: string) => {
-    // ユーザーIDのバリデーション
-    const userIdResult = UserId(id);
-    if (userIdResult.isErr()) return err(userIdResult.error);
+  (id: string, name: string) =>
+    safeTry(async function* () {
+      // ユーザーIDのバリデーション
+      const userId = yield* UserId(id);
 
-    // ユーザーの存在確認
-    const userResult = await selectUserByIdQuery(userIdResult.value);
-    if (userResult.isErr()) return err(userResult.error);
-    const user = userResult.value;
-    if (user === undefined)
-      return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
+      // ユーザーの存在確認
+      const user = yield* selectUserByIdQuery(userId);
+      if (user === undefined) {
+        return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
+      }
 
-    // ユーザー名のバリデーション
-    const userNameResult = UserName(name);
-    if (userNameResult.isErr()) return err(userNameResult.error);
+      // ユーザー名のバリデーション
+      const userName = yield* UserName(name);
 
-    // ユーザー名の変更
-    const updatedUser = changeUserName(user, userNameResult.value);
+      // ユーザー名の変更
+      const updatedUser = changeUserName(user, userName);
 
-    // ユーザーの重複確認
-    const existsResult = await userExists(updatedUser);
-    if (existsResult.isErr()) return err(existsResult.error);
-    if (existsResult.value)
-      return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
+      // ユーザーの重複確認
+      const exists = yield* userExists(updatedUser);
+      if (exists) {
+        return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
+      }
 
-    // ユーザーの更新
-    return await updateUserCommand(updatedUser);
-  };
+      // ユーザーの更新
+      return updateUserCommand(updatedUser);
+    });

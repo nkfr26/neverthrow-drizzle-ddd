@@ -1,4 +1,4 @@
-import { err } from "neverthrow";
+import { err, safeTry } from "neverthrow";
 import { UserId } from "../../domain/user/model";
 import type {
   DeleteUserCommand,
@@ -11,18 +11,17 @@ export const deleteUser =
     selectUserByIdQuery: SelectUserByIdQuery,
     deleteUserCommand: DeleteUserCommand,
   ) =>
-  async (id: string) => {
-    // ユーザーIDのバリデーション
-    const userIdResult = UserId(id);
-    if (userIdResult.isErr()) return err(userIdResult.error);
+  (id: string) => {
+    return safeTry(async function* () {
+      // ユーザーIDのバリデーション
+      const userId = yield* UserId(id);
 
-    // ユーザーの存在確認
-    const userResult = await selectUserByIdQuery(userIdResult.value);
-    if (userResult.isErr()) return err(userResult.error);
-    const user = userResult.value;
-    if (user === undefined)
-      return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
+      // ユーザーの存在確認
+      const user = yield* selectUserByIdQuery(userId);
+      if (user === undefined)
+        return err(new UserNotFoundError("ユーザーが見つかりませんでした。"));
 
-    // ユーザーの削除
-    return await deleteUserCommand(user);
+      // ユーザーの削除
+      return deleteUserCommand(user);
+    });
   };
