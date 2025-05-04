@@ -107,7 +107,7 @@ export const UserName = (value: string): Result<UserName, ValidationError> => {
 - 紐付くふるまいは型定義の下に置く
 
 ```typescript
-import { Result } from "neverthrow";
+import { type Result, ok, safeTry } from "neverthrow";
 import type { ValidationError } from "../../errors";
 import { UserId } from "./user-id";
 import { UserName } from "./user-name";
@@ -117,15 +117,13 @@ export type User = Readonly<{
   name: UserName;
 }>;
 
-export const User = (
-  id: string,
-  name: string,
-): Result<User, ValidationError> => {
-  return Result.combine([UserId(id), UserName(name)]).map(([id, name]) => ({
-    id,
-    name,
-  }));
-};
+export const User = (id: string, name: string): Result<User, ValidationError> =>
+  safeTry(function* () {
+    return ok({
+      id: yield* UserId(id),
+      name: yield* UserName(name),
+    });
+  });
 
 export const changeUserName = (user: User, name: UserName) => ({
   ...user,
@@ -147,15 +145,14 @@ import { usersTable } from "../../../db/schema";
 import type { User } from "../../domain/user/model";
 import { DbClientError } from "../errors";
 
-export const updateUserCommand = (db: DrizzleClient) => (user: User) => {
-  return ResultAsync.fromPromise(
+export const updateUserCommand = (db: DrizzleClient) => (user: User) =>
+  ResultAsync.fromPromise(
     db
       .update(usersTable)
       .set({ name: user.name })
       .where(eq(usersTable.userId, user.id)),
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   );
-};
 export type UpdateUserCommand = ReturnType<typeof updateUserCommand>;
 ```
 
@@ -164,40 +161,28 @@ import { eq } from "drizzle-orm";
 import { Result, ResultAsync, ok } from "neverthrow";
 import type { DrizzleClient } from "../../../db";
 import { type UserDataModel, usersTable } from "../../../db/schema";
-import { User, type UserId, type UserName } from "../../domain/user/model";
+import { User, type UserId } from "../../domain/user/model";
 import { DbClientError } from "../errors";
 
-const toModel = (from: UserDataModel) => {
-  return User(from.userId, from.name);
-};
-
-export const selectUserByIdQuery = (db: DrizzleClient) => (id: UserId) => {
-  return ResultAsync.fromPromise(
+export const selectUserByIdQuery = (db: DrizzleClient) => (id: UserId) =>
+  ResultAsync.fromPromise(
     db.select().from(usersTable).where(eq(usersTable.userId, id)),
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) =>
     userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
   );
-};
 export type SelectUserByIdQuery = ReturnType<typeof selectUserByIdQuery>;
 
-export const selectAllUsersQuery = (db: DrizzleClient) => () => {
-  return ResultAsync.fromPromise(
+export const selectAllUsersQuery = (db: DrizzleClient) => () =>
+  ResultAsync.fromPromise(
     db.select().from(usersTable),
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   ).andThen((userDataModels) => Result.combine(userDataModels.map(toModel)));
-};
 export type SelectAllUsersQuery = ReturnType<typeof selectAllUsersQuery>;
 
-export const selectUserByNameQuery = (db: DrizzleClient) => (name: UserName) => {
-  return ResultAsync.fromPromise(
-    db.select().from(usersTable).where(eq(usersTable.name, name)),
-    (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
-  ).andThen((userDataModels) =>
-    userDataModels.length ? toModel(userDataModels[0]) : ok(undefined),
-  );
+const toModel = (from: UserDataModel) => {
+  return User(from.userId, from.name);
 };
-export type SelectUserByNameQuery = ReturnType<typeof selectUserByNameQuery>;
 ```
 
 ### ドメインサービス
@@ -210,11 +195,10 @@ import type { SelectUserByNameQuery } from "../../../infrastructure/user";
 import type { User } from "../model";
 
 export const userExists =
-  (selectUserByNameQuery: SelectUserByNameQuery) => (user: User) => {
-    return selectUserByNameQuery(user.name).map(
+  (selectUserByNameQuery: SelectUserByNameQuery) => (user: User) =>
+    selectUserByNameQuery(user.name).map(
       (duplicateUser) => duplicateUser !== undefined,
     );
-  };
 export type UserExists = ReturnType<typeof userExists>;
 ```
 
@@ -300,81 +284,37 @@ export const updateUser =
 import { db } from "./db";
 import { userExists } from "./packages/domain/user/service/user-exists";
 import {
-  deleteUserCommand,
-  insertUserCommand,
-  selectAllUsersQuery,
   selectUserByIdQuery,
   selectUserByNameQuery,
   updateUserCommand,
 } from "./packages/infrastructure/user";
-import { deleteUser } from "./packages/use-case/user/delete-user";
-import { getAllUsers } from "./packages/use-case/user/get-all-users";
-import { registerUser } from "./packages/use-case/user/register-user";
 import { updateUser } from "./packages/use-case/user/update-user";
 
-const main = async () => {
-  await getAllUsers(selectAllUsersQuery(db))().then((result) => {
-    result.match(
-      (value) => console.log(value),
-      (error) => console.error(error),
-    );
-  });
-
-  try {
-    await db.transaction(async (tx) => {
-      const result = await registerUser(
-        userExists(selectUserByNameQuery(tx)),
-        insertUserCommand(tx),
-      )("hoge");
-
-      result.match(
-        (value) => console.log(value),
-        (error) => {
-          throw error;
-        },
-      );
-    });
-  } catch (error) {
-    console.error(error);
-  }
-
-  try {
-    await db.transaction(async (tx) => {
-      const result = await updateUser(
-        selectUserByIdQuery(tx),
-        userExists(selectUserByNameQuery(tx)),
-        updateUserCommand(tx),
-      )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "fuga");
-
-      result.match(
-        (value) => console.log(value),
-        (error) => {
-          throw error;
-        },
-      );
-    });
-  } catch (error) {
-    console.error(error);
-  }
-
-  try {
-    await db.transaction(async (tx) => {
-      const result = await deleteUser(
-        selectUserByIdQuery(tx),
-        deleteUserCommand(tx),
-      )("01966230-8abb-71ca-80f2-0f127a1c4cf0");
-
-      result.match(
-        (value) => console.log(value),
-        (error) => {
-          throw error;
-        },
-      );
-    });
-  } catch (error) {
-    console.error(error);
-  }
+const main = () => {
+  updateUser(
+    selectUserByIdQuery(db),
+    userExists(selectUserByNameQuery(db)),
+    updateUserCommand(db),
+  )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "hoge").match(
+    (value) => console.log(value),
+    (error) => console.error(error),
+  );
 };
-
 main();
+
+// トランザクションが必要な場合
+// const main = () => {
+//   db.transaction(async (tx) => {
+//     await updateUser(
+//       selectUserByIdQuery(tx),
+//       userExists(selectUserByNameQuery(tx)),
+//       updateUserCommand(tx),
+//     )("01966230-8abb-71ca-80f2-0f127a1c4cf0", "hoge").match(
+//       (value) => console.log(value),
+//       (error) => {
+//         throw error;
+//       },
+//     );
+//   }).catch((error) => console.error(error));
+// };
 ```

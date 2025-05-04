@@ -11,8 +11,8 @@ export const deleteUser =
     selectUserByIdQuery: SelectUserByIdQuery,
     deleteUserCommand: DeleteUserCommand,
   ) =>
-  (id: string) => {
-    return safeTry(async function* () {
+  (id: string) =>
+    safeTry(async function* () {
       // ユーザーIDのバリデーション
       const userId = yield* UserId(id);
 
@@ -24,4 +24,3 @@ export const deleteUser =
       // ユーザーの削除
       return deleteUserCommand(user);
     });
-  };

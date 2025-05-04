@@ -5,10 +5,9 @@ import { usersTable } from "../../../db/schema";
 import type { User } from "../../domain/user/model";
 import { DbClientError } from "../errors";
 
-export const deleteUserCommand = (db: DrizzleClient) => (user: User) => {
-  return ResultAsync.fromPromise(
+export const deleteUserCommand = (db: DrizzleClient) => (user: User) =>
+  ResultAsync.fromPromise(
     db.delete(usersTable).where(eq(usersTable.userId, user.id)),
     (e) => new DbClientError("データベース接続確立エラー", { cause: e }),
   );
-};
 export type DeleteUserCommand = ReturnType<typeof deleteUserCommand>;

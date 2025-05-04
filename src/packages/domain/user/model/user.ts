@@ -1,4 +1,4 @@
-import { Result } from "neverthrow";
+import { type Result, ok, safeTry } from "neverthrow";
 import type { ValidationError } from "../../errors";
 import { UserId } from "./user-id";
 import { UserName } from "./user-name";
@@ -8,15 +8,13 @@ export type User = Readonly<{
   name: UserName;
 }>;
 
-export const User = (
-  id: string,
-  name: string,
-): Result<User, ValidationError> => {
-  return Result.combine([UserId(id), UserName(name)]).map(([id, name]) => ({
-    id,
-    name,
-  }));
-};
+export const User = (id: string, name: string): Result<User, ValidationError> =>
+  safeTry(function* () {
+    return ok({
+      id: yield* UserId(id),
+      name: yield* UserName(name),
+    });
+  });
 
 export const changeUserName = (user: User, name: UserName) => ({
   ...user,

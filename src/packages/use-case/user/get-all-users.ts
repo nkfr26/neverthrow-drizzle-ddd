@@ -1,5 +1,4 @@
 import type { SelectAllUsersQuery } from "../../infrastructure/user";
 
-export const getAllUsers = (selectAllUsersQuery: SelectAllUsersQuery) => () => {
-  return selectAllUsersQuery();
-};
+export const getAllUsers = (selectAllUsersQuery: SelectAllUsersQuery) => () =>
+  selectAllUsersQuery();
