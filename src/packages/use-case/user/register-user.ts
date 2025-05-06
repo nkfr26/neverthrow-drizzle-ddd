@@ -15,7 +15,9 @@ export const registerUser =
       // ユーザーの重複確認
       const exists = yield* userExists(user);
       if (exists) {
-        return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
+        return err(
+          new CanNotRegisterUserError("ユーザーは既に存在しています。"),
+        );
       }
 
       // ユーザーの作成
