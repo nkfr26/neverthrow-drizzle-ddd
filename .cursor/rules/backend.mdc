@@ -135,7 +135,7 @@ export const changeUserName = (user: User, name: UserName) => ({
 
 - 永続化
 - 再構築
-- 役割ごとに単独の関数として実装
+- 各I/Oアクセスごとに個別の関数を定義
 
 ```typescript
 import { eq } from "drizzle-orm";

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 config({ path: ".env" });
 
-export const envSchema = z.object({
+const envSchema = z.object({
   DATABASE_URL: z.string(),
 });
 
