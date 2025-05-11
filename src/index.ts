@@ -18,10 +18,10 @@ const f = async () =>
   );
 
 // トランザクションが必要な場合
-// const f = async () => {
-//   try {
-//     return await db.transaction(async (tx) => {
-//       return await updateUser(
+// const f = async () =>
+//   await db
+//     .transaction((tx) =>
+//       updateUser(
 //         selectUserByIdQuery(tx),
 //         userExists(selectUserByNameQuery(tx)),
 //         updateUserCommand(tx),
@@ -30,12 +30,9 @@ const f = async () =>
 //         (error) => {
 //           throw error;
 //         },
-//       );
-//     });
-//   } catch (error) {
-//     return error;
-//   }
-// };
+//       ),
+//     )
+//     .catch((error) => error);
 
 const main = async () => {
   console.log(await f());
