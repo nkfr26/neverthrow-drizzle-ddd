@@ -21,9 +21,6 @@ alwaysApply: true
 ```
 src
 ├─ index.ts
-├─ db
-│  ├─ index.ts
-│  └─ schema.ts
 └─ packages
    ├─ domain
    │  ├─ branded.ts
@@ -37,7 +34,9 @@ src
    │     └─ service
    │        └─ user-exists.ts
    ├─ infrastructure
+   │  ├─ drizzle-client.ts
    │  ├─ errors.ts
+   │  ├─ schema.ts
    │  └─ user
    │     ├─ delete-user-command.ts
    │     ├─ index.ts
@@ -126,7 +125,8 @@ export const changeUserName = (user: User, name: UserName) => ({
 });
 ```
 
-### DBクライアント
+### DBクライアントの型
+
 ```typescript
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
@@ -147,6 +147,19 @@ export type DrizzleClient =
     >;
 ```
 
+### DBスキーマ
+
+```typescript
+import { pgTable, text, uuid } from "drizzle-orm/pg-core";
+
+export const usersTable = pgTable("users", {
+  userId: uuid("user_id").primaryKey(),
+  name: text("name").notNull().unique(),
+});
+
+export type UserDataModel = typeof usersTable.$inferSelect;
+```
+
 ### コマンド・クエリ
 
 - 永続化
@@ -156,10 +169,10 @@ export type DrizzleClient =
 ```typescript
 import { eq } from "drizzle-orm";
 import { ResultAsync } from "neverthrow";
-import type { DrizzleClient } from "../../../db";
-import { usersTable } from "../../../db/schema";
 import type { User } from "../../domain/user/model";
+import type { DrizzleClient } from "../drizzle-client";
 import { DbClientError } from "../errors";
+import { usersTable } from "../schema";
 
 export const updateUserCommand = (db: DrizzleClient) => (user: User) =>
   ResultAsync.fromPromise(
@@ -175,10 +188,10 @@ export type UpdateUserCommand = ReturnType<typeof updateUserCommand>;
 ```typescript
 import { eq } from "drizzle-orm";
 import { Result, ResultAsync, ok, safeTry } from "neverthrow";
-import type { DrizzleClient } from "../../../db";
-import { type UserDataModel, usersTable } from "../../../db/schema";
 import { User, UserId, UserName } from "../../domain/user/model";
+import type { DrizzleClient } from "../drizzle-client";
 import { DbClientError } from "../errors";
+import { type UserDataModel, usersTable } from "../schema";
 
 export const selectUserByIdQuery = (db: DrizzleClient) => (id: UserId) =>
   ResultAsync.fromPromise(
@@ -306,7 +319,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { Hono } from "hono";
 import postgres from "postgres";
 import { env } from "../env";
-import type { DrizzleClient } from "./db";
+import type { DrizzleClient } from "./packages/infrastructure/drizzle-client";
 import { userExists } from "./packages/domain/user/service/user-exists";
 import {
   selectUserByIdQuery,

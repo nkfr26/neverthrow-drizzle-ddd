@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { Result, ResultAsync, ok, safeTry } from "neverthrow";
-import type { DrizzleClient } from "../../../db";
-import { type UserDataModel, usersTable } from "../../../db/schema";
 import { User, UserId, UserName } from "../../domain/user/model";
+import type { DrizzleClient } from "../drizzle-client";
 import { DbClientError } from "../errors";
+import { type UserDataModel, usersTable } from "../schema";
 
 export const selectUserByIdQuery = (db: DrizzleClient) => (id: UserId) =>
   ResultAsync.fromPromise(

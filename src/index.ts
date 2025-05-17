@@ -3,8 +3,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { Hono } from "hono";
 import postgres from "postgres";
 import { env } from "../env";
-import type { DrizzleClient } from "./db";
 import { userExists } from "./packages/domain/user/service/user-exists";
+import type { DrizzleClient } from "./packages/infrastructure/drizzle-client";
 import {
   selectUserByIdQuery,
   selectUserByNameQuery,

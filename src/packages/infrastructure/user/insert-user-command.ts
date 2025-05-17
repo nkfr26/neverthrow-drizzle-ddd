@@ -1,8 +1,8 @@
 import { ResultAsync } from "neverthrow";
-import type { DrizzleClient } from "../../../db";
-import { usersTable } from "../../../db/schema";
 import type { User } from "../../domain/user/model";
+import type { DrizzleClient } from "../drizzle-client";
 import { DbClientError } from "../errors";
+import { usersTable } from "../schema";
 
 export const insertUserCommand = (db: DrizzleClient) => (user: User) =>
   ResultAsync.fromPromise(
