@@ -1,4 +1,6 @@
-import { db } from "./db";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { env } from "../env";
 import { userExists } from "./packages/domain/user/service/user-exists";
 import {
   selectUserByIdQuery,
@@ -7,8 +9,9 @@ import {
 } from "./packages/infrastructure/user";
 import { updateUser } from "./packages/use-case/user/update-user";
 
-const f = () =>
-  updateUser(
+const f = () => {
+  const db = drizzle({ client: postgres(env.DATABASE_URL) });
+  return updateUser(
     selectUserByIdQuery(db),
     userExists(selectUserByNameQuery(db)),
     updateUserCommand(db),
@@ -16,10 +19,12 @@ const f = () =>
     (value) => value,
     (error) => error,
   );
+};
 
 // トランザクションが必要な場合
-// const f = () =>
-//   db
+// const f = async () => {
+//   const db = drizzle({ client: postgres(env.DATABASE_URL) });
+//   return db
 //     .transaction((tx) =>
 //       updateUser(
 //         selectUserByIdQuery(tx),
@@ -33,6 +38,7 @@ const f = () =>
 //       ),
 //     )
 //     .catch((error) => error);
+// };
 
 const main = async () => {
   console.log(await f());
