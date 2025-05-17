@@ -7,8 +7,8 @@ import {
 } from "./packages/infrastructure/user";
 import { updateUser } from "./packages/use-case/user/update-user";
 
-const f = async () =>
-  await updateUser(
+const f = () =>
+  updateUser(
     selectUserByIdQuery(db),
     userExists(selectUserByNameQuery(db)),
     updateUserCommand(db),
@@ -18,8 +18,8 @@ const f = async () =>
   );
 
 // トランザクションが必要な場合
-// const f = async () =>
-//   await db
+// const f = () =>
+//   db
 //     .transaction((tx) =>
 //       updateUser(
 //         selectUserByIdQuery(tx),

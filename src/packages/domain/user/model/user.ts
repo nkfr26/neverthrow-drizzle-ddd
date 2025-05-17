@@ -1,20 +1,15 @@
-import { type Result, ok, safeTry } from "neverthrow";
-import type { ValidationError } from "../../errors";
-import { UserId } from "./user-id";
-import { UserName } from "./user-name";
+import type { UserId } from "./user-id";
+import type { UserName } from "./user-name";
 
 export type User = Readonly<{
   id: UserId;
   name: UserName;
 }>;
 
-export const User = (id: string, name: string): Result<User, ValidationError> =>
-  safeTry(function* () {
-    return ok({
-      id: yield* UserId(id),
-      name: yield* UserName(name),
-    });
-  });
+export const User = (id: UserId, name: UserName): User => ({
+  id,
+  name,
+});
 
 export const changeUserName = (user: User, name: UserName) => ({
   ...user,

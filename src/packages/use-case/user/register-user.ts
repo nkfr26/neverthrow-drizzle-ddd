@@ -1,5 +1,6 @@
 import { err, safeTry } from "neverthrow";
 import { v7 as uuidv7 } from "uuid";
+import { UserId, UserName } from "../../domain/user/model";
 import { User } from "../../domain/user/model/user";
 import type { UserExists } from "../../domain/user/service/user-exists";
 import type { InsertUserCommand } from "../../infrastructure/user";
@@ -10,7 +11,7 @@ export const registerUser =
   (name: string) =>
     safeTry(async function* () {
       // ユーザーの生成
-      const user = yield* User(uuidv7(), name);
+      const user = User(yield* UserId(uuidv7()), yield* UserName(name));
 
       // ユーザーの重複確認
       const exists = yield* userExists(user);

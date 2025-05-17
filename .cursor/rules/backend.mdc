@@ -107,23 +107,18 @@ export const UserName = (value: string): Result<UserName, ValidationError> => {
 - 紐付くふるまいは型定義の下に置く
 
 ```typescript
-import { type Result, ok, safeTry } from "neverthrow";
-import type { ValidationError } from "../../errors";
-import { UserId } from "./user-id";
-import { UserName } from "./user-name";
+import type { UserId } from "./user-id";
+import type { UserName } from "./user-name";
 
 export type User = Readonly<{
   id: UserId;
   name: UserName;
 }>;
 
-export const User = (id: string, name: string): Result<User, ValidationError> =>
-  safeTry(function* () {
-    return ok({
-      id: yield* UserId(id),
-      name: yield* UserName(name),
-    });
-  });
+export const User = (id: UserId, name: UserName): User => ({
+  id,
+  name,
+});
 
 export const changeUserName = (user: User, name: UserName) => ({
   ...user,
@@ -158,10 +153,10 @@ export type UpdateUserCommand = ReturnType<typeof updateUserCommand>;
 
 ```typescript
 import { eq } from "drizzle-orm";
-import { Result, ResultAsync, ok } from "neverthrow";
+import { Result, ResultAsync, ok, safeTry } from "neverthrow";
 import type { DrizzleClient } from "../../../db";
 import { type UserDataModel, usersTable } from "../../../db/schema";
-import { User, type UserId } from "../../domain/user/model";
+import { User, UserId, UserName } from "../../domain/user/model";
 import { DbClientError } from "../errors";
 
 export const selectUserByIdQuery = (db: DrizzleClient) => (id: UserId) =>
@@ -180,9 +175,10 @@ export const selectAllUsersQuery = (db: DrizzleClient) => () =>
   ).andThen((userDataModels) => Result.combine(userDataModels.map(toModel)));
 export type SelectAllUsersQuery = ReturnType<typeof selectAllUsersQuery>;
 
-const toModel = (from: UserDataModel) => {
-  return User(from.userId, from.name);
-};
+const toModel = (from: UserDataModel) =>
+  safeTry(function* () {
+    return ok(User(yield* UserId(from.userId), yield* UserName(from.name)));
+  });
 ```
 
 ### ドメインサービス
@@ -210,6 +206,7 @@ export type UserExists = ReturnType<typeof userExists>;
 ```typescript
 import { err, safeTry } from "neverthrow";
 import { v7 as uuidv7 } from "uuid";
+import { UserId, UserName } from "../../domain/user/model";
 import { User } from "../../domain/user/model/user";
 import type { UserExists } from "../../domain/user/service/user-exists";
 import type { InsertUserCommand } from "../../infrastructure/user";
@@ -220,12 +217,14 @@ export const registerUser =
   (name: string) =>
     safeTry(async function* () {
       // ユーザーの生成
-      const user = yield* User(uuidv7(), name);
+      const user = User(yield* UserId(uuidv7()), yield* UserName(name));
 
       // ユーザーの重複確認
       const exists = yield* userExists(user);
       if (exists) {
-        return err(new CanNotRegisterUserError("ユーザーは既に存在しています。"));
+        return err(
+          new CanNotRegisterUserError("ユーザーは既に存在しています。"),
+        );
       }
 
       // ユーザーの作成
@@ -290,8 +289,8 @@ import {
 } from "./packages/infrastructure/user";
 import { updateUser } from "./packages/use-case/user/update-user";
 
-const f = async () =>
-  await updateUser(
+const f = () =>
+  updateUser(
     selectUserByIdQuery(db),
     userExists(selectUserByNameQuery(db)),
     updateUserCommand(db),
@@ -301,8 +300,8 @@ const f = async () =>
   );
 
 // トランザクションが必要な場合
-// const f = async () =>
-//   await db
+// const f = () =>
+//   db
 //     .transaction((tx) =>
 //       updateUser(
 //         selectUserByIdQuery(tx),

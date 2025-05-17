@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
-import { Result, ResultAsync, ok } from "neverthrow";
+import { Result, ResultAsync, ok, safeTry } from "neverthrow";
 import type { DrizzleClient } from "../../../db";
 import { type UserDataModel, usersTable } from "../../../db/schema";
-import { User, type UserId, type UserName } from "../../domain/user/model";
+import { User, UserId, UserName } from "../../domain/user/model";
 import { DbClientError } from "../errors";
 
 export const selectUserByIdQuery = (db: DrizzleClient) => (id: UserId) =>
@@ -30,6 +30,7 @@ export const selectUserByNameQuery = (db: DrizzleClient) => (name: UserName) =>
   );
 export type SelectUserByNameQuery = ReturnType<typeof selectUserByNameQuery>;
 
-const toModel = (from: UserDataModel) => {
-  return User(from.userId, from.name);
-};
+const toModel = (from: UserDataModel) =>
+  safeTry(function* () {
+    return ok(User(yield* UserId(from.userId), yield* UserName(from.name)));
+  });
