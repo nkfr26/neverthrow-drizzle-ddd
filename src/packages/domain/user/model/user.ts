@@ -11,7 +11,7 @@ export const User = (id: UserId, name: UserName): User => ({
   name,
 });
 
-export const changeUserName = (user: User, name: UserName) => ({
+export const changeUserName = (user: User, name: UserName): User => ({
   ...user,
   name,
 });
